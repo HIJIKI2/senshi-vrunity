@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>穿刺VR 結果</title>
 <!-- 穿刺トレーニングVR の結果ページ。QR コード（URL#結果）をスマホで読むとここが開き、# 以降の結果を装飾して表示する。
-     サーバーには何も送らない（すべてこのページの JavaScript で描く）。形式は SessionRecord.QrPayload: 1 行目 "senshi1"、以降 "キー=値"。 -->
+     サーバーには何も送らない（すべてこのページの JavaScript で描く）。形式は SessionRecord.QrPayload: 1 行目 "senshi1"、以降 "キー=値"（URL の ?r= に base64url で載る。古い APK の #生テキスト / #base64url も読める）。 -->
 <style>
   :root { --bg:#0f1a2b; --card:#16243a; --ink:#e8eef7; --muted:#9fb3c8; --ok:#7ee8a2; --warn:#ffd166; --bad:#ff7b7b; --line:#2a3b55; }
   * { box-sizing:border-box; }
@@ -53,7 +53,18 @@
 (function () {
   function raw() {
     var h = location.hash ? location.hash.substring(1) : "";
+    var q = /[?&]r=([^&#]+)/.exec(location.search || "");
+    if (q) h = q[1];                                   // v1.22 以降: ?r=<base64url>（# はリーダーに捨てられることがある）
     try { h = decodeURIComponent(h); } catch (e) { /* 生の UTF-8 のまま */ }
+    if (/^[A-Za-z0-9_-]+$/.test(h) && h.indexOf("senshi1") !== 0) {
+      // base64url（アプリ v1.19 以降）: QR の URL に改行や日本語を含めないための符号化
+      try {
+        var b64 = h.replace(/-/g, "+").replace(/_/g, "/"); while (b64.length % 4) b64 += "=";
+        var bin = atob(b64), bytes = new Uint8Array(bin.length);
+        for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        h = (typeof TextDecoder !== "undefined") ? new TextDecoder("utf-8").decode(bytes) : decodeURIComponent(escape(bin));
+      } catch (e2) { /* 符号化されていない */ }
+    }
     return h;
   }
   function parse(text) {
